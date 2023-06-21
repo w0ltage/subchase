@@ -28,7 +28,7 @@ func main() {
     flag.Parse()
 
     if givenDomain == "" {
-        log.Fatalln("No hostname (domain) is passed. Exiting.")
+        log.Fatalln("No hostname is passed to '-d' option. Exiting.")
     }
     
     rawDomains := findDomains(givenDomain)
@@ -47,25 +47,53 @@ func findDomains(givenDomain string) []string {
     // googleQuery := "https://www.google.com/search?q=site:" + givenDomain
     yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100&p=0"
 
-    googleCollector := colly.NewCollector(
-        // colly.CacheDir("./sites_cache"),
-        colly.UserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0"),
+    // Instantiate default collector
+    collector := colly.NewCollector(
         colly.Async(true),
+        // colly.CacheDir("./sites_cache"),
         colly.Debugger(&debug.LogDebugger{}),
+        colly.DetectCharset(),
+        colly.UserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0"),
         )
+
+    collector.Limit(&colly.LimitRule{
+        DomainGlob: "*",
+        Parallelism: 4,
+        Delay: 4 * time.Second,
+    })
+
+    collector.WithTransport(&http.Transport{
+        TLSClientConfig: &tls.Config{
+            MaxVersion: tls.VersionTLS12,
+        },
+    })
     
     // Referer sets valid Referer HTTP header to requests
-    extensions.Referer(googleCollector)
+    extensions.Referer(collector)
+
+    // Set error handler
+	collector.OnError(func(r *colly.Response, err error) {
+        log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+	})
+
+    // Add headers to requests
+    collector.OnRequest(func(r *colly.Request) {
+        log.Println("visiting", r.URL.String())
+        r.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        r.Headers.Add("Accept-Language", "en-US,en;q=0.5")
+        r.Headers.Add("Accept-Encoding", "gzip")
+        r.Headers.Add("Connection", "keep-alive")
+    })
 
     // Extract domains from Google search results
-    googleCollector.OnHTML("#center_col cite.apx8Vc", func(e *colly.HTMLElement) {
+    collector.OnHTML("#center_col cite.apx8Vc", func(e *colly.HTMLElement) {
         domSelection := e.DOM
         link := domSelection.Contents().First().Text()
         domains = append(domains, link)
     })
 
     // Find and visit next Google search results page
-    googleCollector.OnHTML("#pnnext[href]", func(e *colly.HTMLElement) {
+    collector.OnHTML("#pnnext[href]", func(e *colly.HTMLElement) {
         link := e.Attr("href")
 
         err := e.Request.Visit(link)
@@ -74,53 +102,19 @@ func findDomains(givenDomain string) []string {
         }
     })
 
-    // Set error handler
-	googleCollector.OnError(func(r *colly.Response, err error) {
-        log.Println("Error:", err)
-	})
-
-    // Instantiate Yandex collector
-    yandexCollector := googleCollector.Clone()
-    extensions.Referer(yandexCollector)
-    yandexCollector.Limit(&colly.LimitRule{
-        DomainGlob: "*yandex*",
-        Parallelism: 4,
-        Delay: 4 * time.Second,
-    })
-
-    // Disable TLS security check for a client
-    yandexCollector.WithTransport(&http.Transport{
-        TLSClientConfig:&tls.Config{InsecureSkipVerify: true},
-    })
-
-    // For some unknown reason, requests get "Forbidden"
-    // without using a localhost proxy (mitmproxy)
-    err := yandexCollector.SetProxy("localhost:80")
-    if err != nil {
-        log.Fatalln("Error happened with proxy:", err)
-    }
-
-    // Add headers to requests to Yandex
-    yandexCollector.OnRequest(func(r *colly.Request) {
-        log.Println("visiting", r.URL.String())
-        r.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-        r.Headers.Add("Accept-Language", "en-US,en;q=0.5")
-        r.Headers.Add("Accept-Encoding", "gzip")
-    })
-
     // Extract domains from Yandex search results
-    yandexCollector.OnHTML("a.Link.Link_theme_outer.Path-Item.link.path__item.link.organic__greenurl", func(e *colly.HTMLElement) {
+    collector.OnHTML("a.Link.Link_theme_outer.Path-Item.link.path__item.link.organic__greenurl", func(e *colly.HTMLElement) {
         link := e.ChildText("b")
         domains = append(domains, link)
     })
 
-    yandexCollector.OnHTML("a.link.serp-url__link.serp-url__link_bold", func(e *colly.HTMLElement) {
+    collector.OnHTML("a.link.serp-url__link.serp-url__link_bold", func(e *colly.HTMLElement) {
         link := e.Text
         domains = append(domains, link)
     })
 
     // Find and visit next Yandex search results page
-    yandexCollector.OnHTML(".Pager-Item_type_next", func(e *colly.HTMLElement) {
+    collector.OnHTML(".Pager-Item_type_next", func(e *colly.HTMLElement) {
         link := e.Attr("href")
 
         err := e.Request.Visit(link)
@@ -129,25 +123,16 @@ func findDomains(givenDomain string) []string {
         }
     })
 
-    yandexCollector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
+    collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
         log.Println("Captcha found! Aborting parsing.")
     })
 
-    // For debug
-    // collector.OnResponse(func(r *colly.Response) {
-    //     log.Printf("%s\n", r.Body)
-    // })
+    // collector.Visit(googleQuery)
+    // collector.Wait()
 
-	yandexCollector.OnError(func(r *colly.Response, err error) {
-        log.Println("Error:", err)
-	})
-
-    // googleCollector.Visit(googleQuery)
-    // googleCollector.Wait()
-
-    yandexCollector.Visit(yandexQuery + "&lang=en")
-    // yandexCollector.Visit(yandexQuery + "&lang=ru")
-    yandexCollector.Wait()
+    collector.Visit(yandexQuery + "&lang=en")
+    // collector.Visit(yandexQuery + "&lang=ru")
+    collector.Wait()
 
     return domains
 }

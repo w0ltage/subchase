@@ -44,7 +44,7 @@ func main() {
 func findDomains(givenDomain string) []string {
     var domains []string
 
-    // googleQuery := "https://www.google.com/search?q=site:" + givenDomain
+    googleQuery := "https://www.google.com/search?q=site:" + givenDomain
     yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100&p=0"
 
     // Instantiate default collector
@@ -62,6 +62,9 @@ func findDomains(givenDomain string) []string {
         Delay: 4 * time.Second,
     })
 
+    // Setting the max TLS version to 1.2
+    // Without specifying the maximum version of TLS 1.2, 
+    // requests get a 403 Forbidden response.
     collector.WithTransport(&http.Transport{
         TLSClientConfig: &tls.Config{
             MaxVersion: tls.VersionTLS12,
@@ -78,7 +81,6 @@ func findDomains(givenDomain string) []string {
 
     // Add headers to requests
     collector.OnRequest(func(r *colly.Request) {
-        log.Println("visiting", r.URL.String())
         r.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         r.Headers.Add("Accept-Language", "en-US,en;q=0.5")
         r.Headers.Add("Accept-Encoding", "gzip")
@@ -127,11 +129,11 @@ func findDomains(givenDomain string) []string {
         log.Println("Captcha found! Aborting parsing.")
     })
 
-    // collector.Visit(googleQuery)
-    // collector.Wait()
+    collector.Visit(googleQuery)
+    collector.Wait()
 
     collector.Visit(yandexQuery + "&lang=en")
-    // collector.Visit(yandexQuery + "&lang=ru")
+    collector.Visit(yandexQuery + "&lang=ru")
     collector.Wait()
 
     return domains

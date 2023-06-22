@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly"
-	"github.com/gocolly/colly/debug"
+	// "github.com/gocolly/colly/debug"
 	"github.com/gocolly/colly/extensions"
 )
 
@@ -67,7 +67,7 @@ func findDomains(givenDomain string) []string {
     collector := colly.NewCollector(
         colly.Async(true),
         // colly.CacheDir("./sites_cache"),
-        colly.Debugger(&debug.LogDebugger{}),
+        // colly.Debugger(&debug.LogDebugger{}),
         colly.DetectCharset(),
         colly.UserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/98.0"),
         )

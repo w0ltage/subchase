@@ -21,6 +21,8 @@
 
 # Installation
 
+Add `$HOME/go/bin` to PATH, then run the following command to get the repo
+
 ```sh
 go install -v github.com/tokiakasu/subchase/cmd/subchase@latest
 ```

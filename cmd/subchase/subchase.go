@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+    "os"
 	"log"
 	"net/http"
 	"net/url"
@@ -21,22 +22,37 @@ import (
 // a set-like data structure where only unique elements are stored.
 type void struct{}
 
+const codename = "subchase"
+const version = "v0.1.0"
+
 func main() {
     var givenDomain string
+    var quiet bool
 
-    flag.StringVar(&givenDomain, "d", "", "Pass hostname (ex: google.com)")
+    flag.StringVar(&givenDomain, "d", "", "Specify the domain whose subdomains to look for (ex: -d google.com)")
+    flag.BoolVar(&quiet, "silent", false, "Remove startup banner")
     flag.Parse()
 
+    if !quiet {
+        showBanner()
+    }
+
     if givenDomain == "" {
-        log.Fatalln("No hostname is passed to '-d' option. Exiting.")
+        log.Printf("No domain is passed to '-d' option\n\n")
+        flag.Usage()
+        os.Exit(1)
     }
     
+    // Collect domains from search engines into []string
     rawDomains := findDomains(givenDomain)
-    uniqDomains := processFoundDomains(rawDomains)
+
+    // Bring elements in rawDomains slice to lower case 
+    // + remove duplicates and schemes 
+    domains := processFoundDomains(rawDomains)
 
     // Iterate through slice of unique domains
-    for i := 0; i < len(uniqDomains); i++ {
-        domain := uniqDomains[i]
+    for i := 0; i < len(domains); i++ {
+        domain := domains[i]
         fmt.Println(domain.Interface())
     }
 }
@@ -44,8 +60,8 @@ func main() {
 func findDomains(givenDomain string) []string {
     var domains []string
 
-    googleQuery := "https://www.google.com/search?q=site:" + givenDomain
-    yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100&p=0"
+    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
+    yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100"
 
     // Instantiate default collector
     collector := colly.NewCollector(
@@ -53,39 +69,49 @@ func findDomains(givenDomain string) []string {
         // colly.CacheDir("./sites_cache"),
         colly.Debugger(&debug.LogDebugger{}),
         colly.DetectCharset(),
-        colly.UserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0"),
+        colly.UserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/98.0"),
         )
 
     collector.Limit(&colly.LimitRule{
-        DomainGlob: "*",
-        Parallelism: 4,
-        Delay: 4 * time.Second,
+        Parallelism: 2,
+        RandomDelay: 5 * time.Second,
     })
 
     // Setting the max TLS version to 1.2
     // Without specifying the maximum version of TLS 1.2, 
-    // requests get a 403 Forbidden response.
+    // requests get a response "403 Forbidden".
     collector.WithTransport(&http.Transport{
         TLSClientConfig: &tls.Config{
             MaxVersion: tls.VersionTLS12,
         },
     })
-    
+
     // Referer sets valid Referer HTTP header to requests
     extensions.Referer(collector)
+    // extensions.RandomUserAgent(collector)
 
-    // Set error handler
-	collector.OnError(func(r *colly.Response, err error) {
-        log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-	})
-
-    // Add headers to requests
+    // Add headers to requests to imitate Firefox
     collector.OnRequest(func(r *colly.Request) {
         r.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         r.Headers.Add("Accept-Language", "en-US,en;q=0.5")
         r.Headers.Add("Accept-Encoding", "gzip")
+        r.Headers.Add("DNT", "1")
         r.Headers.Add("Connection", "keep-alive")
+        r.Headers.Add("Upgrade-Insecure-Requests", "1")
+        r.Headers.Add("Sec-Fetch-Dest", "document")
+        r.Headers.Add("Sec-Fetch-Mode", "navigate")
+        r.Headers.Add("Sec-Fetch-Site", "same-origin")
+        r.Headers.Add("Sec-Fetch-User", "?1")
     })
+
+    // Set error handler
+	collector.OnError(func(r *colly.Response, err error) {
+        if r.StatusCode == http.StatusTooManyRequests {
+            log.Printf("\nGoogle got tired of requests and started replying %q. Restart %q after a couple of minutes.", err, codename)
+        } else {
+            log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+        }
+	})
 
     // Extract domains from Google search results
     collector.OnHTML("#center_col cite.apx8Vc", func(e *colly.HTMLElement) {
@@ -97,11 +123,7 @@ func findDomains(givenDomain string) []string {
     // Find and visit next Google search results page
     collector.OnHTML("#pnnext[href]", func(e *colly.HTMLElement) {
         link := e.Attr("href")
-
-        err := e.Request.Visit(link)
-        if err != nil {
-            log.Println("Google scraping error: ", err)
-        }
+        e.Request.Visit(link)
     })
 
     // Extract domains from Yandex search results
@@ -110,28 +132,18 @@ func findDomains(givenDomain string) []string {
         domains = append(domains, link)
     })
 
-    collector.OnHTML("a.link.serp-url__link.serp-url__link_bold", func(e *colly.HTMLElement) {
-        link := e.Text
-        domains = append(domains, link)
-    })
-
     // Find and visit next Yandex search results page
     collector.OnHTML(".Pager-Item_type_next", func(e *colly.HTMLElement) {
         link := e.Attr("href")
-
-        err := e.Request.Visit(link)
-        if err != nil {
-             log.Println("Yandex scraping error: ", err)
-        }
+        e.Request.Visit(link)
     })
 
-    collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
-        log.Println("Captcha found! Aborting parsing.")
-    })
+    // Checks for YandexSmartCaptcha
+    // collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
+    //     log.Println("Captcha found! Aborting operation.")
+    // })
 
     collector.Visit(googleQuery)
-    collector.Wait()
-
     collector.Visit(yandexQuery + "&lang=en")
     collector.Visit(yandexQuery + "&lang=ru")
     collector.Wait()
@@ -139,7 +151,8 @@ func findDomains(givenDomain string) []string {
     return domains
 }
 
-// remove subdomain duplicates and schemes
+// Bring domains to lowercase
+// and remove duplicates + schemes
 func processFoundDomains(domains []string) []reflect.Value {
     set := make(map[string]void)
 
@@ -157,4 +170,15 @@ func processFoundDomains(domains []string) []reflect.Value {
 
     result := reflect.ValueOf(set).MapKeys()
     return result
+}
+
+func showBanner() {
+    fmt.Printf(
+`               __         __                  
+   _______  __/ /_  _____/ /_  ____ _________ 
+  / ___/ / / / __ \/ ___/ __ \/ __ %c/ ___/ _ \
+ (__  ) /_/ / /_/ / /__/ / / / /_/ (__  )  __/
+/____/\__,_/_.___/\___/_/ /_/\__,_/____/\___/  %v
+
+`, '`', version)
 }

@@ -46,6 +46,10 @@ func main() {
     // Collect domains from search engines into []string
     rawDomains := findDomains(givenDomain)
 
+    if len(rawDomains) == 0 {
+        log.Printf("No subdomains of %q was found", givenDomain)
+    }
+
     // Bring elements in rawDomains slice to lower case 
     // + remove duplicates and schemes 
     domains := processFoundDomains(rawDomains)

@@ -28,7 +28,7 @@ type OutputJSON struct {
 }
 
 const codename = "subchase"
-const version = "v0.1.0"
+const version = "v0.2.0"
 
 func main() {
     var givenDomain string

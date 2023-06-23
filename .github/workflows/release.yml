@@ -14,10 +14,10 @@ jobs:
         goos: [linux, darwin, windows]
         goarch: [amd64]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run tests
         run: go test -v -p=1 -timeout=0 ../../cmd/subchase/
-      - uses: wangyoucao577/go-release-action@v1.16
+      - uses: wangyoucao577/go-release-action@v1.38
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}

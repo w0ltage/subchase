@@ -16,13 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run tests
-        run: go test -v -p=1 -timeout=0 ../../cmd/subchase/
+        run: go test -v -p=1 -timeout=0 ./...
       - uses: wangyoucao577/go-release-action@v1.38
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          project_path: "../../cmd/subchase/"
+          project_path: "./cmd/subchase/"
           binary_name: "subchase"
           ldflags: "-s -w"
           extra_files: LICENSE Readme.md

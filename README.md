@@ -21,7 +21,7 @@
 
 # Installation
 
-Add `$HOME/go/bin` to PATH, then run the following command to get the repo
+Install `go v1.20`, then add `$HOME/go/bin` to PATH and run the following command to get the repo
 
 ```sh
 go install -v github.com/tokiakasu/subchase/cmd/subchase@latest
@@ -35,6 +35,8 @@ $ subchase -h
 Usage of subchase:
   -d string
         Specify the domain whose subdomains to look for (ex: -d google.com)
+  -json
+        Ouput as JSON
   -silent
         Remove startup banner
 ```
@@ -85,5 +87,5 @@ fonts.google.com
 
 # To-Do functionality
 
+- [x] Add option to output results in JSON
 - [ ] Add option to output content-length along with domains
-- [ ] Add option to output results in JSON

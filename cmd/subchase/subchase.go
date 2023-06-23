@@ -2,12 +2,13 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
-    "os"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -22,15 +23,21 @@ import (
 // a set-like data structure where only unique elements are stored.
 type void struct{}
 
+type OutputJSON struct {
+    Domains []string `json:"domains"`
+}
+
 const codename = "subchase"
 const version = "v0.1.0"
 
 func main() {
     var givenDomain string
     var quiet bool
+    var jsonFlag bool
 
     flag.StringVar(&givenDomain, "d", "", "Specify the domain whose subdomains to look for (ex: -d google.com)")
     flag.BoolVar(&quiet, "silent", false, "Remove startup banner")
+    flag.BoolVar(&jsonFlag, "json", false, "Output as JSON")
     flag.Parse()
 
     if !quiet {
@@ -54,10 +61,15 @@ func main() {
     // + remove duplicates and schemes 
     domains := processFoundDomains(rawDomains)
 
-    // Iterate through slice of unique domains
-    for i := 0; i < len(domains); i++ {
-        domain := domains[i]
-        fmt.Println(domain.Interface())
+    if jsonFlag {
+        data := sliceToJSON(domains)
+        fmt.Println(string(data))
+    } else {
+        // Iterate through slice of unique domains
+        for i := 0; i < len(domains); i++ {
+            domain := domains[i]
+            fmt.Println(domain.Interface())
+        }
     }
 }
 
@@ -185,4 +197,24 @@ func showBanner() {
 /____/\__,_/_.___/\___/_/ /_/\__,_/____/\___/  %v
 
 `, '`', version)
+}
+
+func sliceToJSON(values []reflect.Value) []byte {
+    var strings []string
+
+    for _, value := range values {
+        strings = append(strings, value.String())
+    }
+
+    outputJSON := OutputJSON{
+        Domains: strings,
+    }
+
+    jsonData, err := json.Marshal(outputJSON)
+    if err != nil {
+        log.Println("Error marhaling to JSON:", err)
+        os.Exit(1)
+    }
+
+    return jsonData
 }

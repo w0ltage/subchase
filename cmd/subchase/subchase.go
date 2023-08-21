@@ -152,8 +152,8 @@ func findDomains(givenDomain string) []string {
     })
 
     // Extract domains from Yandex search results
-    collector.OnHTML("a.Link.Link_theme_outer.Path-Item.link.path__item.link.organic__greenurl", func(e *colly.HTMLElement) {
-        link := e.ChildText("b")
+    collector.OnHTML("a.Link.Link_theme_outer", func(e *colly.HTMLElement) {
+        link := e.Attr("href")
         message := fmt.Sprintf("Found %q", link)
         loading_spinner.UpdateMessage(message)
 
@@ -171,8 +171,8 @@ func findDomains(givenDomain string) []string {
         loading_spinner.UpdateMessage("Yandex captured us with SmartCaptcha :(")
     })
 
-    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
-    collector.Visit(googleQuery)
+    // googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
+    // collector.Visit(googleQuery)
 
     // Yandex sucks at search by TLD
     if strings.ContainsAny(".", givenDomain) {

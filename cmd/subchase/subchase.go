@@ -16,6 +16,7 @@ import (
 	"github.com/gocolly/colly"
 	// "github.com/gocolly/colly/debug"
 	"github.com/gocolly/colly/extensions"
+    "github.com/leaanthony/spinner"
 )
 
 // The `void` type is defined as an empty struct.
@@ -28,7 +29,7 @@ type OutputJSON struct {
 }
 
 const codename = "subchase"
-const version = "v0.2.0"
+const version = "v0.3.0"
 
 func main() {
     var givenDomain string
@@ -76,6 +77,8 @@ func main() {
 func findDomains(givenDomain string) []string {
     var domains []string
 
+    loading_spinner := spinner.New("Collecting domains from Google and Yandex")
+    loading_spinner.Start()
 
     // Instantiate default collector
     collector := colly.NewCollector(
@@ -121,9 +124,11 @@ func findDomains(givenDomain string) []string {
     // Set error handler
 	collector.OnError(func(r *colly.Response, err error) {
         if r.StatusCode == http.StatusTooManyRequests {
-            log.Printf("\nGoogle got tired of requests and started replying %q. Restart %q after a couple of minutes.", err, codename)
+            message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, codename)
+            loading_spinner.Error(message)
         } else {
-            log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+            message := fmt.Sprintln("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+            loading_spinner.Error(message)
         }
 	})
 
@@ -133,6 +138,9 @@ func findDomains(givenDomain string) []string {
         link := domSelection.Contents().First().Text()
 
         if strings.Contains(link, givenDomain) {
+            message := fmt.Sprintf("Found %q", link)
+            loading_spinner.UpdateMessage(message)
+
             domains = append(domains, link)
         }
     })
@@ -146,6 +154,9 @@ func findDomains(givenDomain string) []string {
     // Extract domains from Yandex search results
     collector.OnHTML("a.Link.Link_theme_outer.Path-Item.link.path__item.link.organic__greenurl", func(e *colly.HTMLElement) {
         link := e.ChildText("b")
+        message := fmt.Sprintf("Found %q", link)
+        loading_spinner.UpdateMessage(message)
+
         domains = append(domains, link)
     })
 
@@ -156,23 +167,27 @@ func findDomains(givenDomain string) []string {
     })
 
     // Checks for YandexSmartCaptcha
-    // collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
-    //     log.Println("Captcha found! Aborting operation.")
-    // })
-
+    collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
+        loading_spinner.UpdateMessage("Yandex captured us with SmartCaptcha :(")
+    })
 
     googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
     collector.Visit(googleQuery)
 
     // Yandex sucks at search by TLD
-    if strings.Contains(".", givenDomain) {
+    if strings.ContainsAny(".", givenDomain) {
         yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100"
 
         collector.Visit(yandexQuery + "&lang=en")
         collector.Visit(yandexQuery + "&lang=ru")
+    } else {
+        loading_spinner.UpdateMessage("Search by TLD detected. Switching to Google only.")
     }
 
     collector.Wait()
+
+    loading_spinner.UpdateMessage("Finished")
+    loading_spinner.Success()
 
     return domains
 }

@@ -76,8 +76,6 @@ func main() {
 func findDomains(givenDomain string) []string {
     var domains []string
 
-    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
-    yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100"
 
     // Instantiate default collector
     collector := colly.NewCollector(
@@ -130,10 +128,13 @@ func findDomains(givenDomain string) []string {
 	})
 
     // Extract domains from Google search results
-    collector.OnHTML("#center_col cite.apx8Vc", func(e *colly.HTMLElement) {
+    collector.OnHTML("#center_col cite", func(e *colly.HTMLElement) {
         domSelection := e.DOM
         link := domSelection.Contents().First().Text()
-        domains = append(domains, link)
+
+        if strings.Contains(link, givenDomain) {
+            domains = append(domains, link)
+        }
     })
 
     // Find and visit next Google search results page
@@ -159,9 +160,18 @@ func findDomains(givenDomain string) []string {
     //     log.Println("Captcha found! Aborting operation.")
     // })
 
+
+    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
     collector.Visit(googleQuery)
-    collector.Visit(yandexQuery + "&lang=en")
-    collector.Visit(yandexQuery + "&lang=ru")
+
+    // Yandex sucks at search by TLD
+    if strings.Contains(".", givenDomain) {
+        yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100"
+
+        collector.Visit(yandexQuery + "&lang=en")
+        collector.Visit(yandexQuery + "&lang=ru")
+    }
+
     collector.Wait()
 
     return domains

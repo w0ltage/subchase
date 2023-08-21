@@ -171,8 +171,8 @@ func findDomains(givenDomain string) []string {
         loading_spinner.UpdateMessage("Yandex captured us with SmartCaptcha :(")
     })
 
-    // googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
-    // collector.Visit(googleQuery)
+    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
+    collector.Visit(googleQuery)
 
     // Yandex sucks at search by TLD
     if strings.ContainsAny(".", givenDomain) {

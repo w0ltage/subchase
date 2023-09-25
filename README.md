@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="static/terminal.png" alt="terminal" width="900px">
+  <img src="assets/terminal.png" alt="terminal" width="900px">
   <br>
 </h1>
 
@@ -84,6 +84,15 @@ ipv6.google.com
 assistant.google.com
 fonts.google.com
 ```
+
+## Chase subdomains by top-level domain (TLD)
+
+Specify only a TLD instead of a subdomain
+
+<h1 align="center">
+  <img src="assets/tld_chase.gif" alt="top-level_domain_chase" width="900px">
+  <br>
+</h1>
 
 # To-Do functionality
 

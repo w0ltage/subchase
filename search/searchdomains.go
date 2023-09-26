@@ -1,80 +1,20 @@
-package main
+package search
 
 import (
-	"crypto/tls"
-	"encoding/json"
-	"flag"
-	"fmt"
-	"log"
-	"net/http"
-	"net/url"
-	"os"
-	"reflect"
-	"strings"
-	"time"
+    "time"
+    "fmt"
+    "strings"
+    "crypto/tls"
+    "net/http"
 
 	"github.com/gocolly/colly"
 	// "github.com/gocolly/colly/debug"
 	"github.com/gocolly/colly/extensions"
     "github.com/leaanthony/spinner"
+
 )
 
-// The `void` type is defined as an empty struct.
-// It is used as the value type for the map (`set`) to create
-// a set-like data structure where only unique elements are stored.
-type void struct{}
-
-type OutputJSON struct {
-    Domains []string `json:"domains"`
-}
-
-const codename = "subchase"
-const version = "v0.3.0"
-
-func main() {
-    var givenDomain string
-    var quiet bool
-    var jsonFlag bool
-
-    flag.StringVar(&givenDomain, "d", "", "Specify the domain whose subdomains to look for (ex: -d google.com)")
-    flag.BoolVar(&quiet, "silent", false, "Remove startup banner")
-    flag.BoolVar(&jsonFlag, "json", false, "Output as JSON")
-    flag.Parse()
-
-    if !quiet {
-        showBanner()
-    }
-
-    if givenDomain == "" {
-        log.Printf("No domain is passed to '-d' option\n\n")
-        flag.Usage()
-        os.Exit(1)
-    }
-    
-    // Collect domains from search engines into []string
-    rawDomains := findDomains(givenDomain)
-
-    if len(rawDomains) == 0 {
-        log.Printf("No subdomains of %q was found", givenDomain)
-    }
-
-    // Bring elements in rawDomains slice to lower case 
-    // + remove duplicates and schemes 
-    domains := processFoundDomains(rawDomains)
-
-    if jsonFlag {
-        data := sliceToJSON(domains)
-        fmt.Println(string(data))
-    } else {
-        // Iterate through slice of unique domains
-        for i := 0; i < len(domains); i++ {
-            domain := domains[i]
-            fmt.Println(domain.Interface())
-        }
-    }
-}
-
-func findDomains(givenDomain string) []string {
+func ChaseDomains(givenDomain string) []string {
     var domains []string
 
     loading_spinner := spinner.New("Collecting domains from Google and Yandex")
@@ -124,7 +64,7 @@ func findDomains(givenDomain string) []string {
     // Set error handler
 	collector.OnError(func(r *colly.Response, err error) {
         if r.StatusCode == http.StatusTooManyRequests {
-            message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, codename)
+            message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, "subchase")
             loading_spinner.Error(message)
         } else {
             message := fmt.Sprintln("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
@@ -190,56 +130,4 @@ func findDomains(givenDomain string) []string {
     loading_spinner.Success()
 
     return domains
-}
-
-// Bring domains to lowercase
-// and remove duplicates + schemes
-func processFoundDomains(domains []string) []reflect.Value {
-    set := make(map[string]void)
-
-    for _, element := range domains {
-        element = strings.ToLower(element)
-
-        if strings.Contains(element, "http") {
-            u, _ := url.Parse(element)
-            set[u.Host] = void{}
-
-        } else {
-            set[element] = void{}
-        }
-    }
-
-    result := reflect.ValueOf(set).MapKeys()
-    return result
-}
-
-func showBanner() {
-    fmt.Printf(
-`               __         __                  
-   _______  __/ /_  _____/ /_  ____ _________ 
-  / ___/ / / / __ \/ ___/ __ \/ __ %c/ ___/ _ \
- (__  ) /_/ / /_/ / /__/ / / / /_/ (__  )  __/
-/____/\__,_/_.___/\___/_/ /_/\__,_/____/\___/  %v
-
-`, '`', version)
-}
-
-func sliceToJSON(values []reflect.Value) []byte {
-    var strings []string
-
-    for _, value := range values {
-        strings = append(strings, value.String())
-    }
-
-    outputJSON := OutputJSON{
-        Domains: strings,
-    }
-
-    jsonData, err := json.Marshal(outputJSON)
-    if err != nil {
-        log.Println("Error marhaling to JSON:", err)
-        os.Exit(1)
-    }
-
-    return jsonData
 }

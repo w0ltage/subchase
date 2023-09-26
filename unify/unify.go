@@ -48,8 +48,6 @@ func deduplicate(domainsArray []string) []reflect.Value {
     return result
 }
 
-// Bring domains to lowercase
-// and remove duplicates + schemes
 func Unify(domainsArray []string) []reflect.Value {
     domainsToLowercase := toLower(domainsArray)
     domainsRemoveHTTP := removeHTTP(domainsToLowercase)
@@ -57,22 +55,3 @@ func Unify(domainsArray []string) []reflect.Value {
 
     return domainsDeduplicated
 }
-
-// func Unify(domains []string) []reflect.Value {
-//     set := make(map[string]void)
-
-//     for _, element := range domains {
-//         element = strings.ToLower(element)
-
-//         if strings.Contains(element, "http") {
-//             u, _ := url.Parse(element)
-//             set[u.Host] = void{}
-
-//         } else {
-//             set[element] = void{}
-//         }
-//     }
-
-//     result := reflect.ValueOf(set).MapKeys()
-//     return result
-// }

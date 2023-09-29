@@ -1,20 +1,21 @@
 package search
 
 import (
-    "time"
-    "fmt"
-    "strings"
-    "crypto/tls"
-    "net/http"
+	"crypto/tls"
+	// "fmt"
+	"net/http"
+	// "strings"
+	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/tokiakasu/subchase/search/engines"
 	// "github.com/gocolly/colly/debug"
 	"github.com/gocolly/colly/extensions"
-    "github.com/leaanthony/spinner"
-
+	"github.com/leaanthony/spinner"
+	// "github.com/charmbracelet/bubbles/spinner"
 )
 
-func ChaseDomains(givenDomain string) []string {
+func ChaseDomains(targetDomain string) []string {
     var domains []string
 
     loading_spinner := spinner.New("Collecting domains from Google and Yandex")
@@ -61,68 +62,11 @@ func ChaseDomains(givenDomain string) []string {
         r.Headers.Add("Sec-Fetch-User", "?1")
     })
 
-    // Set error handler
-	collector.OnError(func(r *colly.Response, err error) {
-        if r.StatusCode == http.StatusTooManyRequests {
-            message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, "subchase")
-            loading_spinner.Error(message)
-        } else {
-            message := fmt.Sprintln("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-            loading_spinner.Error(message)
-        }
-	})
+    // yandexDomains := engine.YandexEngine(collector, targetDomain)
+    googleDomains := engine.GoogleEngine(collector, targetDomain)
 
-    // Extract domains from Google search results
-    collector.OnHTML("#center_col cite", func(e *colly.HTMLElement) {
-        domSelection := e.DOM
-        link := domSelection.Contents().First().Text()
-
-        if strings.Contains(link, givenDomain) {
-            message := fmt.Sprintf("Found %q", link)
-            loading_spinner.UpdateMessage(message)
-
-            domains = append(domains, link)
-        }
-    })
-
-    // Find and visit next Google search results page
-    collector.OnHTML("#pnnext[href]", func(e *colly.HTMLElement) {
-        link := e.Attr("href")
-        e.Request.Visit(link)
-    })
-
-    // Extract domains from Yandex search results
-    collector.OnHTML("a.Link.Link_theme_outer", func(e *colly.HTMLElement) {
-        link := e.Attr("href")
-        message := fmt.Sprintf("Found %q", link)
-        loading_spinner.UpdateMessage(message)
-
-        domains = append(domains, link)
-    })
-
-    // Find and visit next Yandex search results page
-    collector.OnHTML(".Pager-Item_type_next", func(e *colly.HTMLElement) {
-        link := e.Attr("href")
-        e.Request.Visit(link)
-    })
-
-    // Checks for YandexSmartCaptcha
-    collector.OnHTML("#checkbox-captcha-form", func(e *colly.HTMLElement) {
-        loading_spinner.UpdateMessage("Yandex captured us with SmartCaptcha :(")
-    })
-
-    googleQuery := "https://www.google.com/search?q=site:*." + givenDomain
-    collector.Visit(googleQuery)
-
-    // Yandex sucks at search by TLD
-    if strings.ContainsAny(".", givenDomain) {
-        yandexQuery := "https://yandex.com/search/?text=site:" + givenDomain + "&lr=100"
-
-        collector.Visit(yandexQuery + "&lang=en")
-        collector.Visit(yandexQuery + "&lang=ru")
-    } else {
-        loading_spinner.UpdateMessage("Search by TLD detected. Switching to Google only.")
-    }
+    // domains = append(domains, yandexDomains...)
+    domains = append(domains, googleDomains...)
 
     collector.Wait()
 

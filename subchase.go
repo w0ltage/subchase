@@ -7,7 +7,7 @@ import (
 	"os"
 
     "github.com/tokiakasu/subchase/version"
-    "github.com/tokiakasu/subchase/unify"
+    "github.com/tokiakasu/subchase/utility"
     "github.com/tokiakasu/subchase/search"
     "github.com/tokiakasu/subchase/output"
 )
@@ -43,7 +43,7 @@ func main() {
 
     // Bring elements in rawDomains slice to lower case 
     // + remove duplicates and schemes 
-    domains := unify.Unify(rawDomains)
+    domains := utility.Unify(rawDomains)
 
     if jsonFlag {
         data := output.SliceToJSON(domains)

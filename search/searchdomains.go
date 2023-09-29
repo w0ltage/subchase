@@ -7,8 +7,10 @@ import (
 	// "strings"
 	"time"
 
-	"github.com/gocolly/colly"
 	"github.com/tokiakasu/subchase/search/engines"
+    "github.com/tokiakasu/subchase/utility"
+
+	"github.com/gocolly/colly"
 	// "github.com/gocolly/colly/debug"
 	"github.com/gocolly/colly/extensions"
 	"github.com/leaanthony/spinner"
@@ -16,7 +18,6 @@ import (
 )
 
 func ChaseDomains(targetDomain string) []string {
-    var domains []string
 
     loading_spinner := spinner.New("Collecting domains from Google and Yandex")
     loading_spinner.Start()
@@ -62,11 +63,10 @@ func ChaseDomains(targetDomain string) []string {
         r.Headers.Add("Sec-Fetch-User", "?1")
     })
 
-    // yandexDomains := engine.YandexEngine(collector, targetDomain)
+    yandexDomains := engine.YandexEngine(collector, targetDomain, loading_spinner)
     googleDomains := engine.GoogleEngine(collector, targetDomain, loading_spinner)
 
-    // domains = append(domains, yandexDomains...)
-    domains = append(domains, googleDomains...)
+    domains := utility.ConcatenateSlices(yandexDomains, googleDomains)
 
     collector.Wait()
 

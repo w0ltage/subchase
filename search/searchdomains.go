@@ -63,7 +63,7 @@ func ChaseDomains(targetDomain string) []string {
     })
 
     // yandexDomains := engine.YandexEngine(collector, targetDomain)
-    googleDomains := engine.GoogleEngine(collector, targetDomain)
+    googleDomains := engine.GoogleEngine(collector, targetDomain, loading_spinner)
 
     // domains = append(domains, yandexDomains...)
     domains = append(domains, googleDomains...)

@@ -1,28 +1,27 @@
 package engine
 
 import (
-    "fmt"
-    "strings"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gocolly/colly"
+	"github.com/leaanthony/spinner"
 	// "github.com/gocolly/colly/debug"
 	// "github.com/gocolly/colly/extensions"
 )
 
-func GoogleEngine(collector *colly.Collector, targetDomain string) []string {
+func GoogleEngine(collector *colly.Collector, targetDomain string, loadingSpinner *spinner.Spinner) []string {
     var foundDomains []string
 
     // Set error handler if "Too Many Requests" arise
 	collector.OnError(func(r *colly.Response, err error) {
         if r.StatusCode == http.StatusTooManyRequests {
-            fmt.Printf("\nGoogle got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, "subchase")
-            // message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, "subchase")
-            // loading_spinner.Error(message)
+            message := fmt.Sprintf("Google got tired of requests and started replying %q.\nRestart %q after a couple of minutes.", err, "subchase")
+            loadingSpinner.Error(message)
         } else {
-            fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-            // message := fmt.Sprintln("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-            // loading_spinner.Error(message)
+            message := fmt.Sprintln("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+            loadingSpinner.Error(message)
         }
 	})
 
@@ -32,9 +31,8 @@ func GoogleEngine(collector *colly.Collector, targetDomain string) []string {
         link := domSelection.Contents().First().Text()
 
         if strings.Contains(link, targetDomain) {
-            // message := fmt.Sprintf("Found %q", link)
-            // loading_spinner.UpdateMessage(message)
-            fmt.Printf("\nFound %q", link)
+            message := fmt.Sprintf("Found %q", link)
+            loadingSpinner.UpdateMessage(message)
 
             foundDomains = append(foundDomains, link)
         }
